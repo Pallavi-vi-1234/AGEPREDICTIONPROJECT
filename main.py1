@@ -1,0 +1,103 @@
+import os
+import cv2
+import numpy as np
+import pandas as pd
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+
+# Dataset path
+dataset_path = "dataset"
+
+# Lists
+images = []
+ages = []
+
+# Load images
+for folder in os.listdir(dataset_path):
+
+    folder_path = os.path.join(dataset_path, folder)
+
+    if os.path.isdir(folder_path):
+
+        age = int(folder)
+
+        for img_name in os.listdir(folder_path):
+
+            img_path = os.path.join(folder_path, img_name)
+
+            img = cv2.imread(img_path)
+
+            if img is not None:
+
+                img = cv2.resize(img, (128, 128))
+
+                images.append(img)
+                ages.append(age)
+
+# Convert to numpy arrays
+X = np.array(images, dtype="float32") / 255.0
+y = np.array(ages)
+
+print("Total Images Loaded:", len(X))
+
+# Train test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+# CNN Model
+model = Sequential()
+
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)))
+model.add(MaxPooling2D((2, 2)))
+
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2)))
+
+model.add(Flatten())
+
+model.add(Dense(128, activation='relu'))
+
+model.add(Dense(1))
+
+# Compile model
+model.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='mean_squared_error',
+    metrics=['mae']
+)
+
+# Train model
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=10,
+    validation_data=(X_test, y_test)
+)
+
+# Save model
+model.save("age_prediction_model.keras")
+
+print("Model Saved Successfully!")
+
+# Predict
+predicted = model.predict(X_test)
+
+predicted = predicted.flatten()
+
+# Custom Accuracy
+correct = 0
+
+for i in range(len(y_test)):
+
+    if abs(predicted[i] - y_test[i]) <= 5:
+        correct += 1
+
+accuracy = (correct / len(y_test)) * 100
+
+print(f"Accuracy: {accuracy:.2f}%")
